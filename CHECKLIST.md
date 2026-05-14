@@ -52,6 +52,7 @@
 
 ## Submit
 
+- [ ] Commit the `uv.lock` file (**points will be deducted if missing**)
 - [ ] Push to your fork
 - [ ] **Upload** the Swagger UI screenshot
 - [ ] **Upload** the test results and coverage screenshot
