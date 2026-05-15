@@ -3,3 +3,4 @@ pydantic
 pandas
 scikit-learn
 joblib
+pytest
