@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
 jobs:
   # 1. Validation Stage
   test:
@@ -21,11 +22,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          # Ensure pytest is installed even if missed in requirements
+          pip install pytest 
 
       - name: Run Tests
         run: |
-          # Runs pytest on the /tests folder
-          pytest tests/
+          # Use python -m to avoid PATH issues
+          python -m pytest tests/
 
   # 2. Packaging Stage (Docker Hub)
   build-and-push:
@@ -43,7 +46,6 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          # Built from the root Dockerfile
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/churn-prediction:latest .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/churn-prediction:latest
 
@@ -62,10 +64,12 @@ jobs:
             # Log in on the EC2 instance
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             
-            # Clean up old versions
+            # Pull the fresh image
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/churn-prediction:latest
-            docker stop churn-prediction || true
-            docker rm churn-prediction || true
             
-            # Run the container
+            # FORCE cleanup: Stops and removes the container even if it is stuck
+            # This helps resolve the "port already allocated" error
+            docker rm -f churn-prediction || true
+            
+            # Run the new container
             docker run -d -p 80:8000 --name churn-prediction ${{ secrets.DOCKERHUB_USERNAME }}/churn-prediction:latest
