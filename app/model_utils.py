@@ -3,9 +3,47 @@ Model loading and prediction logic.
 
 The model must be loaded ONCE at module level, NOT inside the predict function.
 """
+import pandas as pd
+import joblib 
+from app.logger_setup import setup_logging
 
-# TODO 1: Load your serialized churn model from data/model.joblib
-model = ...
+logger = setup_logging()
+
+logger.info("Starting application ...")
+
+
+try:
+    logger.info("Loading churn prediction model ...")
+
+    model = joblib.load("data/rf_model.pkl")
+
+    logger.info("Model loaded sucessfully.")
+except FileNotFoundError:
+    logger.error("Model file not found at data/rf_model.pkl")
+    raise
+
+except Exception as e:
+    logger.critical(f"Critical error while loading model: {e}")
+    raise
+
+import sklearn.compose._column_transformer as _ct
+if not hasattr(_ct, "_RemainderColsList"):
+    class _RemainderColsList(list): pass
+    _ct._RemainderColsList = _RemainderColsList
+
+try:
+    logger.info("Loading transformer ...")
+
+    transformer = joblib.load("data/column_transformer.pkl")
+
+    logger.info("Transformer loaded sucessfully.")
+except FileNotFoundError:
+    logger.error("Transformer file not found at data/rf_model.pkl")
+    raise
+
+except Exception as e:
+    logger.critical(f"Critical error while loading Transformer: {e}")
+    raise
 
 
 def predict_churn(features: list[float]) -> int:
@@ -14,11 +52,33 @@ def predict_churn(features: list[float]) -> int:
     """
     # TODO 2: Use model.predict() to get a prediction and return it as an int
     #         Hint: model.predict() expects a 2D array
-    pass
+    logger.debug(f"Received raw features: {features}")
 
+    try:
+        logger.info("Running churn prediction...")
+
+        X_transformed = transformer.transform(features)
+        prediction = model.predict(X_transformed)
+
+        logger.info(f"Prediction completed successfully: {prediction}")
+        
+        return int(prediction[0])
+    except Exception as e:
+        logger.error(f"Prediction failed: {e}")
+        raise
 
 if __name__ == "__main__":
     # TODO 3: Replace with sample features that match your model
-    sample = []
+    sample = pd.DataFrame([{"CreditScore": 619,
+                            "Geography": "France",
+                            "Gender": "Female",
+                            "Age": 42,
+                            "Tenure": 2,
+                            "Balance": 0.0,
+                            "NumOfProducts": 1,
+                            "HasCrCard": 1,
+                            "IsActiveMember": 1,
+                            "EstimatedSalary": 101348.9}])
+    logger.info("Testing prediction with sample input.")
     print(f"Input:      {sample}")
     print(f"Prediction: {predict_churn(sample)}")

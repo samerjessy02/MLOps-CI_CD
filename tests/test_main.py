@@ -1,34 +1,87 @@
 """
 Tests for the Churn Prediction API.
-
-Run with:
-    pytest tests/ -v
-    pytest tests/ -v --cov=app --cov=main --cov-report=term-missing
 """
 
+import pytest
+from litestar.testing import TestClient
 
-# ---------------------------------------------------------------------------
-# Function Tests
-# ---------------------------------------------------------------------------
-
-# TODO 1: Write a test that calls predict_churn() directly with sample features
-#         and asserts the result is 0 or 1
-#         Hint: import predict_churn from app.model_utils
-
-# TODO 2 (bonus): Write another function test with edge-case inputs
+from app.model_utils import predict_churn
+from main import app
 
 
-# ---------------------------------------------------------------------------
-# Endpoint Tests
-# ---------------------------------------------------------------------------
+def test_predict_churn_direct():
+    sample_features = {
+        "CreditScore": 600,
+        "Geography": "France",
+        "Gender": "Male",
+        "Age": 40,
+        "Tenure": 3,
+        "Balance": 60000.0,
+        "NumOfProducts": 2,
+        "HasCrCard": 1,
+        "IsActiveMember": 1,
+        "EstimatedSalary": 50000.0,
+    }
 
-# TODO 3: Write a test that POSTs to /predict with valid JSON
-#         and checks the status code and response body
-#         Hint: Litestar POST returns 201, not 200
-#         Hint: use `with TestClient(app=app) as client:`
+    import pandas as pd
+    df = pd.DataFrame([sample_features])
 
-# TODO 4: Write a test for GET /health
+    result = predict_churn(df)
 
-# TODO 5: Write a test for GET /
+    # ensure valid binary output
+    assert result in [0, 1] or result[0] in [0, 1]
 
-# TODO 6 (bonus): Test that invalid input returns status 400
+
+
+def test_predict_endpoint():
+    payload = {
+        "CreditScore": 600,
+        "Geography": "France",
+        "Gender": "Male",
+        "Age": 40,
+        "Tenure": 3,
+        "Balance": 60000.0,
+        "NumOfProducts": 2,
+        "HasCrCard": 1,
+        "IsActiveMember": 1,
+        "EstimatedSalary": 50000.0,
+    }
+
+    with TestClient(app=app) as client:
+        response = client.post("/predict", json=payload)
+
+        assert response.status_code in (200, 201)
+
+        body = response.json()
+        assert "prediction" in body
+
+
+
+def test_health_endpoint():
+    with TestClient(app=app) as client:
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "healthy"}
+
+
+def test_home_endpoint():
+    with TestClient(app=app) as client:
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "message": "Welcome to the Churn Prediction API"
+        }
+
+
+def test_invalid_input_returns_400():
+    bad_payload = {
+        "CreditScore": "invalid",  # should be int
+        "Geography": "France",
+    }
+
+    with TestClient(app=app) as client:
+        response = client.post("/predict", json=bad_payload)
+
+        assert response.status_code == 400
